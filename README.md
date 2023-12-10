@@ -54,8 +54,8 @@ https://skobki.com/yazyk-si-ncurses/
    
    Установить библиотеку ncurses. команда для установки: sudo apt-get install libncurses-dev
    
-   Скомпилировать программу: gcc pr.c -o pr -lncurses
+   Скомпилировать программу: gcc term_game.c -o term_game -lncurses
    
-   Запустить: ./pr
+   Запустить: ./term_game
    
    Можно играть) (управление стрелочками, выйти можно на esc или ctrl+C)
