@@ -1,20 +1,108 @@
 #include <ncurses.h>
-#include <stdlib.h> //для ранд функции, чтобы когда мы находим на предмет он появлялся в др месте
+#include <stdlib.h> //для ранд функции
 #include <time.h>
 #include <stdbool.h>
 
 int py, px; // корды игрока
-int ty, tx; //корды предмета
 int p_gold = 0; //голда
 bool t_placed = 0; //флаг расположения предмета
 bool p_placed = 0; //флаг расположения игрока
 int r_placed = 0; //комнаты
+int lvl = 1;
 
+struct money {
+    int y;
+    int x;
+};
 
-int dungeon(int c, int rows, int cols, char (*map)[cols]) { //рисуем комнату
-    srand(time(NULL)); //каждый раз число будет разным изза времени. srand потому что seed random
+struct money money[10];
 
-    //заполнение карты
+int grab_money(int cols, char (*map)[cols], int dir_y, int dir_x) {
+    for (int m = 0; m < 10; m++) {
+	if (dir_y == money[m].y && dir_x == money[m].x) {
+	    map[dir_y][dir_x] = ' ';
+	    p_gold += rand() % 10 + 1;
+	    break;
+	}
+    }
+    return 0;
+}
+
+int p_action(int c, int cols, char (*map)[cols]) {
+    int dir_y = py, dir_x = px;
+    if (c == KEY_UP)
+        dir_y--;
+    else if (c == KEY_DOWN)
+        dir_y++;
+    else if (c == KEY_LEFT)
+    	dir_x--;
+    else if (c == KEY_RIGHT)
+	dir_x++;
+    else if (c == '>' && map[py][px] == '>'){
+	t_placed = 0; //флаг расположения предмета
+	p_placed = 0; //флаг расположения игрока
+	r_placed = 0; //комнаты
+	return 1;
+    }
+
+    if (map[dir_y][dir_x] == ' ' || map[dir_y][dir_x] == '>') {
+	py = dir_y;
+	px = dir_x;
+    } else if (map[dir_y][dir_x] == 't') 
+	grab_money(cols, map, dir_y, dir_x);
+    return 0;
+}
+
+int map_draw(int rows, int cols, char (*map)[cols]) {
+    for (int y = 0; y <= rows; y++){ //рисуем стены
+        for (int x = 0; x <= cols; x++){
+	    if (y == rows) {
+	        mvaddch(y, x, ' ');
+	    } else if (map[y][x] == 't') {
+	        mvaddch(y, x, 't');
+	    } else if (map[y][x] == '>') {
+	        mvaddch(y, x, '>');
+            } else if (map[y][x] == '%') {
+                mvaddch(y, x, '%');
+            } else if (map[y][x] == ' ') {
+                mvaddch(y, x, ' ');
+            } else {
+                mvaddch(y, x, ':');
+            }
+        }
+    }
+    mvprintw(rows, 0, "Gold: %d \t Lvl: %d", p_gold, lvl);
+
+    return 0;
+}
+
+int respawn_creatures(int rows, int cols, char (*map)[cols]) {
+    if (!t_placed){
+	int my, mx;
+	for (int m = 0; m < 10; m++) {
+            do {
+                my = rand() % rows;
+                mx = rand() % cols;
+            } while (map[my][mx] != ' '); //пока попадаем в стены генерим новые, чтобы попасть в окно
+	    money[m].y = my;
+	    money[m].x = mx;
+	    map[money[m].y][money[m].x] = 't';
+
+        }
+	t_placed = 1;
+    }
+
+    if (!p_placed){
+        do {
+            py = rand() % rows;
+            px = rand() % cols;
+        } while (map[py][px] == ':' || map[py][px] == '%'); //пока попадаем в стены генерим новые, чтобы попасть в окно
+        p_placed = 1;
+    }
+    return 0;
+}
+
+int map_gen(int rows, int cols, char (*map)[cols]) {
     if (!r_placed) {
 	int ry, rx, r_size_y, r_size_x; //корды и размер комнат
 	int r_old_center_y, r_old_center_x;
@@ -112,56 +200,46 @@ int dungeon(int c, int rows, int cols, char (*map)[cols]) { //рисуем ко�
 	        }
     	    }
 	} 
+	//переход между уровнями
+	int sy, sx; 
+	do {
+            sy = rand() % rows;
+            sx = rand() % cols;
+	} while (map[sy][sx] != ' ');
+	map[sy][sx] = '>';
     }
-
-
-    //отрисовка подземелья
-    for (int y = 0; y <= rows; y++){ //рисуем стены
-        for (int x = 0; x <= cols; x++){
-	    if (y == rows) {
-	        mvaddch(y, x, ' ');
-            } else if (map[y][x] == '%') {
-                mvaddch(y, x, '%');
-            } else if (map[y][x] == ' ') {
-                mvaddch(y, x, ' ');
-            } else {
-                mvaddch(y, x, ':');
-            }
-        }
-    }
-
-    if (c == KEY_UP && map[py-1][px] == ' ') py--;
-    else if (c == KEY_DOWN && map[py+1][px] == ' ') py++;
-    else if (c == KEY_LEFT && map[py][px - 1] == ' ') px--;
-    else if (c == KEY_RIGHT && map[py][px + 1] == ' ') px++;
-
-    if (!t_placed){
-        do {
-            ty = rand() % rows;
-            tx = rand() % cols;
-        } while (map[ty][tx] == ':' || map[ty][tx] == '%'); //пока попадаем в стены генерим новые, чтобы попасть в окно
-        t_placed = 1;
-    }
-
-    if (!p_placed){
-        do {
-            py = rand() % rows;
-            px = rand() % cols;
-        } while (map[py][px] == ':' || map[py][px] == '%'); //пока попадаем в стены генерим новые, чтобы попасть в окно
-        p_placed = 1;
-    }
-
-    if (py == ty && px == tx) {
-        t_placed = 0;
-        p_gold += rand() % 10 + 1;
-
-    }
-
-    mvaddch(ty, tx, 't'); //расположить предмет
-    mvaddch(py, px, 'o');  //расположить игрока
-    mvprintw(rows, 0, "Gold: %d ", p_gold);
 
     return 0;
+}
+
+int game_loop(int rows, int cols, char (*map)[cols]) { //рисуем комнату
+    int c;
+    int new_lvl = 0;
+    srand(time(NULL)); //каждый раз число будет разным изза времени. srand потому что seed random
+
+    //заполнение карты
+    map_gen(rows, cols, map);
+
+    respawn_creatures(rows, cols, map);
+
+    if (c != 0) {
+	new_lvl = p_action(c, cols, map); //действия игрока, включая подбор денег
+    }
+
+    //отрисовка карты
+    map_draw(rows, cols, map);
+
+    mvaddch(py, px, 'O');  //расположить игрока
+
+    if (new_lvl) {
+	clear();
+	mvprintw(rows/2 - 1, cols/2 - 10, "Welcome to level %d", ++lvl);
+        mvprintw(rows/2 + 1, cols/2 - 10, "Press Enter to continue");
+    }
+
+    c = getch();
+
+    return c;
 }
 
 int main () {
@@ -180,8 +258,8 @@ int main () {
     char map[rows][cols];
 
     do{ //основной наш цикл
-        dungeon(c, rows -1, cols -1, map);
-    } while ((c = getch()) != 27); //пока не esc
+        c = game_loop(rows -1, cols -1, map);
+    } while (c != 27); //пока не esc
 
     getch();
 
